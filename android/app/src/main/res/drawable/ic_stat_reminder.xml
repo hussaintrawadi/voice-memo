@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Status-bar icon for reminders: a bell (white, tinted by the system). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M12,22a2.4,2.4 0,0 0,2.4 -2.4h-4.8A2.4,2.4 0,0 0,12 22zM18.5,16.2V11c0,-3.1 -1.9,-5.7 -4.8,-6.4V4a1.7,1.7 0,0 0,-3.4 0v0.6C7.4,5.3 5.5,7.9 5.5,11v5.2L3.8,18v0.9h16.4V18z" />
+</vector>

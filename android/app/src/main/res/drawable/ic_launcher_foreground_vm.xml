@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive-icon foreground: 108dp canvas; launchers show the central 72dp, so the disc fills about two thirds of it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#F6F4EF" android:pathData="M54,30 a24,24 0 1 1 0,48 a24,24 0 1 1 0,-48 z" />
+    <path android:fillColor="#E4572E" android:pathData="M41.90,48.29 a2.35,2.35 0 0 1 2.35,2.35 v6.72 a2.35,2.35 0 0 1 -2.35,2.35 a2.35,2.35 0 0 1 -2.35,-2.35 v-6.72 a2.35,2.35 0 0 1 2.35,-2.35 z M49.97,42.24 a2.35,2.35 0 0 1 2.35,2.35 v18.82 a2.35,2.35 0 0 1 -2.35,2.35 a2.35,2.35 0 0 1 -2.35,-2.35 v-18.82 a2.35,2.35 0 0 1 2.35,-2.35 z M58.03,37.87 a2.35,2.35 0 0 1 2.35,2.35 v27.55 a2.35,2.35 0 0 1 -2.35,2.35 a2.35,2.35 0 0 1 -2.35,-2.35 v-27.55 a2.35,2.35 0 0 1 2.35,-2.35 z M66.10,45.26 a2.35,2.35 0 0 1 2.35,2.35 v12.77 a2.35,2.35 0 0 1 -2.35,2.35 a2.35,2.35 0 0 1 -2.35,-2.35 v-12.77 a2.35,2.35 0 0 1 2.35,-2.35 z" />
+</vector>

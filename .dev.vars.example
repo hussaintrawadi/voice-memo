@@ -1,0 +1,20 @@
+# Copy to .dev.vars for local development (git-ignored).
+# In production these are Worker secrets:  npx wrangler secret put <NAME>
+
+# Needed to create the account the first time, and to reset a forgotten password.
+SETUP_CODE=
+
+# Long random string. Keys password hashing and signed audio links; never change it once set.
+APP_SECRET=
+
+# Free AI providers (leave blank to skip a provider)
+GROQ_API_KEY=
+DEEPGRAM_API_KEY=
+SARVAM_API_KEY=
+MISTRAL_API_KEY=
+
+# Email digests (Resend free tier)
+RESEND_API_KEY=
+
+# Reminder push to Android: the Firebase service account JSON, on one line (optional)
+FCM_SERVICE_ACCOUNT=

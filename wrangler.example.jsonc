@@ -1,0 +1,72 @@
+{
+  // Copy this file to wrangler.jsonc and fill in the ids that `wrangler ... create` printed.
+  // wrangler.jsonc is git-ignored, so your own ids stay out of the repo.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "voice-memo",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-09-01",
+  // global_fetch_strictly_public: SSRF protection the OAuth provider needs to fetch client metadata documents.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "observability": { "enabled": true },
+
+  // The React PWA is served as static assets; /api/* always hits the Worker.
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/mcp", "/authorize", "/oauth/*", "/.well-known/*"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "voice-memo-db",
+      "database_id": "PUT-YOUR-D1-DATABASE-ID-HERE",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [{ "binding": "AUDIO", "bucket_name": "voice-memo-audio" }],
+  // Grants and tokens for the Claude connector (MCP over OAuth).
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "PUT-YOUR-KV-NAMESPACE-ID-HERE" }],
+  // Vectorize and Workers AI have no local simulator, so dev uses the real services.
+  "vectorize": [{ "binding": "VECTORS", "index_name": "voice-memo-thoughts", "remote": true }],
+  "ai": { "binding": "AI", "remote": true },
+
+  "workflows": [{ "name": "process-recording", "binding": "PROCESS", "class_name": "ProcessRecording" }],
+
+  // Every minute: send due reminders. Every 5 min: sweep stuck recordings. Hourly: summaries, retention.
+  "triggers": { "crons": ["* * * * *"] },
+
+  "vars": {
+    "APP_NAME": "Voice Memo",
+    // Hard cap on the audio this app keeps in R2 (the free tier is 10 GB for the whole account).
+    "AUDIO_CAP_BYTES": "8000000000",
+    "AUDIO_RETENTION_DAYS": "30",
+    "TIMEZONE": "Asia/Kolkata"
+  },
+
+  // `npm run dev` uses this environment. Every binding points at a separate dev resource, so a
+  // command that reaches the network (anything with --remote) can never touch your real memos.
+  // D1, R2, KV and Workflows are simulated locally; only Vectorize and Workers AI are remote.
+  "env": {
+    "dev": {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "voice-memo-db-dev",
+          "database_id": "PUT-YOUR-DEV-D1-DATABASE-ID-HERE",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [{ "binding": "AUDIO", "bucket_name": "voice-memo-audio-dev" }],
+      "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "PUT-YOUR-DEV-KV-NAMESPACE-ID-HERE" }],
+      "vectorize": [{ "binding": "VECTORS", "index_name": "voice-memo-thoughts-dev", "remote": true }],
+      "ai": { "binding": "AI", "remote": true },
+      "workflows": [{ "name": "process-recording-dev", "binding": "PROCESS", "class_name": "ProcessRecording" }],
+      "vars": {
+        "APP_NAME": "Voice Memo (dev)",
+        "AUDIO_CAP_BYTES": "8000000000",
+        "AUDIO_RETENTION_DAYS": "30",
+        "TIMEZONE": "Asia/Kolkata"
+      }
+    }
+  }
+}

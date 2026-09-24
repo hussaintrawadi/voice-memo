@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Voice Memo</string>
+    <string name="title_activity_main">Voice Memo</string>
+    <string name="package_name">app.voicememo.personal</string>
+    <string name="custom_url_scheme">app.voicememo.personal</string>
+    <string name="shortcut_record_short">Record</string>
+    <string name="shortcut_record_long">Record a memo</string>
+    <string name="tile_record">Record memo</string>
+</resources>
