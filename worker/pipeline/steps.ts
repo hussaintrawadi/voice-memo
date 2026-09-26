@@ -13,6 +13,7 @@ import {
 } from "../lib/data";
 import { applySpellings, chunkText, isNameLike, isNearName, isOnlyStockPhrases, type Spelling } from "../lib/text";
 import { isLocalDateTime, zonedDateTime } from "../lib/time";
+import { reconcileRecording } from "./reconcile";
 import { errorMessage, estimateTokens, localTime, newId, now, truncate } from "../lib/util";
 import {
   cleanSystemPrompt,
@@ -25,7 +26,7 @@ import {
   understandUserPrompt,
 } from "./prompts";
 
-export const STAGES = ["transcribe", "clean", "understand", "embed"] as const;
+export const STAGES = ["transcribe", "clean", "understand", "reconcile", "embed"] as const;
 export type Stage = (typeof STAGES)[number];
 
 /** Vectorize free tier: 5M stored dimensions. Stop embedding at 90% and surface it in settings. */
@@ -455,7 +456,8 @@ export function understandStage(env: Env, id: string) {
       env.DB.prepare("DELETE FROM tasks WHERE recording_id = ? AND origin = 'ai' AND status = 'suggested'").bind(id),
       env.DB.prepare("DELETE FROM decisions WHERE recording_id = ? AND origin = 'ai' AND status = 'active'").bind(id),
       env.DB.prepare("DELETE FROM questions WHERE recording_id = ? AND origin = 'ai' AND status = 'open'").bind(id),
-      env.DB.prepare("DELETE FROM reminders WHERE recording_id = ? AND origin = 'voice' AND status = 'pending'").bind(id),
+      // Reminders from a memo start as 'suggested'; once confirmed they belong to the user (origin 'app').
+      env.DB.prepare("DELETE FROM reminders WHERE recording_id = ? AND origin = 'voice' AND status IN ('suggested', 'pending')").bind(id),
       env.DB.prepare("DELETE FROM recordings_fts WHERE recording_id = ?").bind(id),
     ];
     if (oldThoughts.length) await env.VECTORS.deleteByIds(oldThoughts.map((r) => r.id));
@@ -643,6 +645,25 @@ export function understandStage(env: Env, id: string) {
   });
 }
 
+// ── reconcile ───────────────────────────────────────────────────────────────
+
+/**
+ * Updates what was already open (tasks, decisions, reminders, questions) from this memo.
+ * If every provider is busy the memo still completes; it just changes nothing this time.
+ */
+export function reconcileStage(env: Env, id: string) {
+  return guarded(env, id, async () => {
+    await setStatus(env, id, "organizing", "Updating your open items");
+    try {
+      return await reconcileRecording(env, id);
+    } catch (err) {
+      console.error("reconcile skipped", id, errorMessage(err));
+      await env.DB.prepare("UPDATE recordings SET reconciled_at = ? WHERE id = ?").bind(now(), id).run();
+      return { changes: 0, skipped: truncate(errorMessage(err), 200) };
+    }
+  });
+}
+
 // ── embed ───────────────────────────────────────────────────────────────────
 
 export function embedStage(env: Env, id: string) {
@@ -731,5 +752,9 @@ export async function resumeStage(env: Env, id: string): Promise<Stage> {
     .bind(id)
     .first();
   if (!analysis) return "understand";
+  const reconciled = await env.DB.prepare("SELECT reconciled_at FROM recordings WHERE id = ?")
+    .bind(id)
+    .first<{ reconciled_at: number | null }>();
+  if (!reconciled?.reconciled_at) return "reconcile";
   return "embed";
 }

@@ -5,6 +5,7 @@ import {
   embedStage,
   finishStage,
   markFailed,
+  reconcileStage,
   type Stage,
   STAGES,
   transcribeStage,
@@ -31,6 +32,7 @@ export class ProcessRecording extends WorkflowEntrypoint<Env, ProcessParams> {
       if (runs("transcribe")) await step.do("transcribe", STEP, () => transcribeStage(this.env, recordingId));
       if (runs("clean")) await step.do("clean", STEP, () => cleanStage(this.env, recordingId));
       if (runs("understand")) await step.do("understand", STEP, () => understandStage(this.env, recordingId));
+      if (runs("reconcile")) await step.do("reconcile", STEP, () => reconcileStage(this.env, recordingId));
       if (runs("embed")) await step.do("embed", STEP, () => embedStage(this.env, recordingId));
       await step.do("finish", () => finishStage(this.env, recordingId));
     } catch (err) {

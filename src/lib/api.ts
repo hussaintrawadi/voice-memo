@@ -149,6 +149,8 @@ export interface RecordingDetail {
   decisions: Decision[];
   questions: Question[];
   analysis: { version: number; provider: string; model: string; prompt_version: string; created_at: number } | null;
+  /** What this memo changed in items that were already open. */
+  changes?: ContextChange[];
 }
 
 export interface HomeData {
@@ -309,4 +311,17 @@ export interface Connection {
   id: string;
   name: string;
   createdAt: number;
+}
+
+/** Something a memo changed in an item that was already open (see worker/pipeline/reconcile.ts). */
+export interface ContextChange {
+  id: string;
+  item_type: "task" | "decision" | "reminder" | "question";
+  item_id: string;
+  action: string;
+  summary: string;
+  evidence: string | null;
+  created_at: number;
+  recording_id?: string | null;
+  recording_title?: string | null;
 }

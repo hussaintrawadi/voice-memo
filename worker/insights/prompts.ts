@@ -58,8 +58,8 @@ You are summarising everything they captured in a period. Synthesise; don't list
 - projects: one entry per project that had real activity, most active first. summary: 2 to 3 sentences. highlights: up to 4 short bullets.
   Thoughts without a project go under "Other" only if they matter.
 - key_ideas: the most important new ideas (up to 6).
-- decisions: decisions made in this period (up to 6).
-- action_items: concrete things to do, with dates when known (up to 8).
+- decisions: decisions that stand at the end of this period (up to 6). Lines marked [changed later] were replaced or dropped: report where they ended up ("moved from orange to yellow"), never the old choice as current.
+- action_items: concrete things still to do, with dates when known (up to 8).
 - open_questions: questions still unresolved (up to 6).
 - themes: 2 to 6 short recurring themes, lowercase.
 - emerging: one idea that is clearly gaining momentum (mentioned repeatedly or growing), else null.
@@ -72,6 +72,7 @@ export function partialSummarySystem(): string {
   return `${VOICE}
 Condense this slice of a longer period into notes that will later be merged with other slices.
 Keep every distinct idea, decision, action and open question; drop repetition. Group notes by project ("Other" for none).
+Keep the [changed later] mark on decisions that were replaced or dropped.
 Reply with only a JSON object matching this JSON Schema:
 ${JSON.stringify(toJsonSchema(PartialSummarySchema))}`;
 }

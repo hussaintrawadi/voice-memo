@@ -128,11 +128,12 @@ async function loadMaterial(env: Env, userId: string, from: number, to: number, 
       .bind(userId, from, to)
       .all<{ title: string; due_date: string | null; status: string; project: string | null }>(),
     env.DB.prepare(
-      `SELECT d.statement, p.name AS project FROM decisions d LEFT JOIN projects p ON p.id = d.project_id
-       WHERE d.user_id = ?1 AND d.status = 'active' AND d.decided_at >= ?2 AND d.decided_at < ?3`,
+      `SELECT d.statement, d.status, p.name AS project FROM decisions d LEFT JOIN projects p ON p.id = d.project_id
+       WHERE d.user_id = ?1 AND d.status IN ('active', 'superseded', 'reversed') AND d.decided_at >= ?2 AND d.decided_at < ?3
+       ORDER BY d.decided_at`,
     )
       .bind(userId, from, to)
-      .all<{ statement: string; project: string | null }>(),
+      .all<{ statement: string; status: string; project: string | null }>(),
     env.DB.prepare(
       `SELECT q.question, q.status, p.name AS project FROM questions q
        JOIN recordings r ON r.id = q.recording_id LEFT JOIN projects p ON p.id = q.project_id
@@ -149,7 +150,8 @@ async function loadMaterial(env: Env, userId: string, from: number, to: number, 
     ...tasks.results.map(
       (t) => `TASK ${tag(t.project)} ${t.title}${t.due_date ? ` (due ${t.due_date})` : ""}${t.status === "done" ? " [done]" : ""}`,
     ),
-    ...decisions.results.map((d) => `DECISION ${tag(d.project)} ${d.statement}`),
+    // Replaced decisions stay in, marked, so a summary can say where the thinking ended up.
+    ...decisions.results.map((d) => `DECISION ${tag(d.project)} ${d.statement}${d.status === "active" ? "" : " [changed later]"}`),
     ...questions.results.map((q) => `QUESTION ${tag(q.project)} ${q.question}${q.status === "resolved" ? " [answered]" : ""}`),
   ];
 }
@@ -211,9 +213,17 @@ export async function summarizeRange(
   const from = zonedDayStart(start, tz);
   const to = zonedDayStart(addDays(end, 1), tz);
 
+  // Fresh while no memo in the range changed and no later memo changed an item from the range
+  // (e.g. a decision from last week replaced today).
   const source = await env.DB.prepare(
-    `SELECT COUNT(*) AS n, COALESCE(MAX(updated_at), 0) AS latest FROM recordings
-     WHERE user_id = ?1 AND recorded_at >= ?2 AND recorded_at < ?3`,
+    `SELECT COUNT(*) AS n, MAX(COALESCE(MAX(r.updated_at), 0), COALESCE((
+       SELECT MAX(COALESCE(x.undone_at, x.created_at)) FROM context_changes x
+       WHERE x.user_id = ?1 AND x.item_id IN (
+         SELECT id FROM decisions WHERE user_id = ?1 AND decided_at >= ?2 AND decided_at < ?3
+         UNION SELECT k.id FROM tasks k JOIN recordings kr ON kr.id = k.recording_id WHERE k.user_id = ?1 AND kr.recorded_at >= ?2 AND kr.recorded_at < ?3
+         UNION SELECT q.id FROM questions q JOIN recordings qr ON qr.id = q.recording_id WHERE q.user_id = ?1 AND qr.recorded_at >= ?2 AND qr.recorded_at < ?3)
+     ), 0)) AS latest
+     FROM recordings r WHERE r.user_id = ?1 AND r.recorded_at >= ?2 AND r.recorded_at < ?3`,
   )
     .bind(userId, from, to)
     .first<{ n: number; latest: number }>();

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowRight, BellRing, HelpCircle, Mic, Milestone, Search as SearchIcon, Settings as SettingsIcon, Sparkles } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "wouter";
+import { ContextUpdates } from "../components/ContextUpdates";
 import { PendingUploads } from "../components/PendingUploads";
 import { RecordingCard } from "../components/RecordingCard";
 import { RemindersSection, useReminders, formatReminderTime } from "../components/Reminders";
@@ -146,6 +147,8 @@ export function Home({ userName }: { userName: string }) {
           </Link>
         </Card>
       )}
+
+      <ContextUpdates live={Boolean(recent.data?.recordings.some((r) => IN_PROGRESS.includes(r.status)))} />
 
       <TodaySection tasks={home.data?.tasks ?? []} />
 

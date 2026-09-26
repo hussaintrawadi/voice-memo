@@ -3,6 +3,7 @@ import { ArrowLeft, Check, HelpCircle, Milestone, Pin, RefreshCw, Trash2, X } fr
 import { useCallback, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { AudioPlayer } from "../components/AudioPlayer";
+import { ChangeRow } from "../components/ContextUpdates";
 import { TaskList } from "../components/TaskList";
 import { TranscriptPanel } from "../components/TranscriptPanel";
 import { Button, Card, Chip, ErrorNote, SectionTitle, Spinner, StatusBadge } from "../components/ui";
@@ -227,6 +228,19 @@ export function RecordingPage({ id }: { id: string }) {
         </>
       )}
 
+      {d.changes && d.changes.length > 0 && (
+        <>
+          <SectionTitle>What this memo changed</SectionTitle>
+          <Card className="overflow-hidden">
+            <ul className="divide-y divide-line">
+              {d.changes.map((c) => (
+                <ChangeRow key={c.id} change={c} showSource={false} />
+              ))}
+            </ul>
+          </Card>
+        </>
+      )}
+
       {d.thoughts.length > 0 && (
         <>
           <SectionTitle>{d.thoughts.length === 1 ? "Thought" : `${d.thoughts.length} thoughts`}</SectionTitle>
@@ -273,7 +287,12 @@ export function RecordingPage({ id }: { id: string }) {
               <div key={x.id} className="flex items-start gap-3 px-4 py-3">
                 <Milestone className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <p className={`text-[15px] ${x.status === "reversed" ? "text-muted line-through" : ""}`}>{x.statement}</p>
+                  <p className={`text-[15px] ${x.status === "reversed" || x.status === "superseded" ? "text-muted line-through" : ""}`}>
+                    {x.statement}
+                  </p>
+                  {(x.status === "reversed" || x.status === "superseded") && (
+                    <p className="mt-0.5 text-xs text-muted">You changed this later</p>
+                  )}
                   {x.rationale && <p className="mt-0.5 text-xs text-muted">{x.rationale}</p>}
                 </div>
                 <button

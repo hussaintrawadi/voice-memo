@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { authRoutes, requireSession } from "./auth";
 import { HttpError } from "./lib/util";
 import { connectionRoutes } from "./routes/connections";
+import { contextRoutes } from "./routes/context";
 import { miscRoutes } from "./routes/misc";
 import { projectRoutes } from "./routes/projects";
 import { recordingRoutes } from "./routes/recordings";
@@ -63,6 +64,7 @@ app.route("/summaries", summaryRoutes);
 app.route("/reminders", reminderRoutes);
 app.route("/push-devices", pushDeviceRoutes);
 app.route("/connections", connectionRoutes);
+app.route("/context-changes", contextRoutes);
 app.route("/device/reminders", deviceReminderRoutes);
 app.route("/", miscRoutes);
 

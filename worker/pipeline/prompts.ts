@@ -110,7 +110,7 @@ export function cleanSystemPrompt(vocabulary: string[]): string {
     .join("\n");
 }
 
-function buildCalendarReference(dateStr: string): string {
+export function buildCalendarReference(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map(Number);
   const center = new Date(Date.UTC(y, m - 1, d));
   const lines: string[] = ['Calendar (for resolving day names to dates):'];

@@ -9,6 +9,7 @@ import {
   type TranscriptRow,
 } from "../lib/data";
 import { signedAudioPath, verifyAudioSignature } from "../lib/secrets";
+import { undoChangesFromRecording } from "../pipeline/reconcile";
 import { extensionForMime, HttpError, newId, now } from "../lib/util";
 import { STAGES } from "../pipeline/steps";
 import { startProcessing } from "../pipeline/workflow";
@@ -181,7 +182,7 @@ export const recordingRoutes = new Hono<AppEnv>()
 
   .get("/:id", async (c) => {
     const rec = await getOwnedRecording(c.env, c.req.param("id"), c.get("userId"));
-    const [transcripts, thoughts, tasks, decisions, questions, analysis] = await Promise.all([
+    const [transcripts, thoughts, tasks, decisions, questions, analysis, changes] = await Promise.all([
       currentTranscripts(c.env, rec.id),
       c.env.DB.prepare(
         `SELECT t.id, t.idx, t.type, t.title, t.summary, t.content, t.start_sec, t.end_sec, p.id AS project_id, p.name AS project,
@@ -212,6 +213,12 @@ export const recordingRoutes = new Hono<AppEnv>()
       )
         .bind(rec.id)
         .first(),
+      c.env.DB.prepare(
+        `SELECT id, item_type, item_id, action, summary, evidence, created_at FROM context_changes
+         WHERE recording_id = ? AND undone_at IS NULL ORDER BY created_at`,
+      )
+        .bind(rec.id)
+        .all(),
     ]);
 
     return c.json({
@@ -242,6 +249,7 @@ export const recordingRoutes = new Hono<AppEnv>()
       tasks: tasks.results,
       decisions: decisions.results,
       questions: questions.results,
+      changes: changes.results,
       analysis,
     });
   })
@@ -340,6 +348,8 @@ export const recordingRoutes = new Hono<AppEnv>()
 
   .delete("/:id", async (c) => {
     const rec = await getOwnedRecording(c.env, c.req.param("id"), c.get("userId"));
+    // A deleted memo shouldn't keep having changed your other items.
+    await undoChangesFromRecording(c.env, rec.id);
     const { results: thoughts } = await c.env.DB.prepare("SELECT id FROM thoughts WHERE recording_id = ?")
       .bind(rec.id)
       .all<{ id: string }>();

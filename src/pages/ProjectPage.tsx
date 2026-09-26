@@ -334,7 +334,10 @@ export function ProjectPage({ id }: { id: string }) {
                 <Milestone className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden />
                 <div className="min-w-0 flex-1">
                   <p className={`text-[15px] ${x.status !== "active" ? "text-muted line-through" : ""}`}>{x.statement}</p>
-                  <p className="text-xs text-muted">{formatDay(x.decided_at)}</p>
+                  <p className="text-xs text-muted">
+                    {formatDay(x.decided_at)}
+                    {x.status !== "active" && " · you changed this later"}
+                  </p>
                 </div>
               </Link>
             ))}

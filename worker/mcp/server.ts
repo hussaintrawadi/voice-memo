@@ -96,6 +96,7 @@ async function buildServer(env: Env, ctx: ExecutionContext, userId: string): Pro
       instructions: `Voice Memo is ${user.name}'s voice-first second brain: they record thoughts, and each memo is transcribed and organised into thoughts, projects, action points, decisions, questions and reminders.
 Start with get_overview when they want to talk about their work or plans. Use search_memory to find what they said about anything.
 When they want something remembered, use save_note. For things to do, add_action_point. For "remind me", set_reminder.
+Their thinking changes over time: newer memos replace older decisions, and the app already updates tasks, decisions and reminders when they change their mind. Treat anything marked [replaced] as history, never as the current plan.
 Their timezone is ${tz}; it is now ${nowLocal}. Refer to them as "you".`,
     },
   );
@@ -115,12 +116,13 @@ Their timezone is ${tz}; it is now ${nowLocal}. Refer to them as "you".`,
           last24h: { recordings: number; seconds: number };
           tasks: TaskRow[];
           questions: { id: string; question: string }[];
-          decisions: { statement: string; decided_at: number }[];
+          decisions: { statement: string; decided_at: number; status: string }[];
         };
-        const [home, reminders, projects] = await Promise.all([
+        const [home, reminders, projects, changes] = await Promise.all([
           api<Home>("GET", "/home"),
           api<{ reminders: ReminderRow[] }>("GET", "/reminders"),
           api<{ projects: ProjectItem[] }>("GET", "/projects"),
+          api<{ changes: { summary: string; created_at: number }[] }>("GET", "/context-changes?days=7&limit=8"),
         ]);
         const active = projects.projects.filter((p) => p.memoCount > 0).slice(0, 8);
         return text(
@@ -130,7 +132,8 @@ Their timezone is ${tz}; it is now ${nowLocal}. Refer to them as "you".`,
             `\nOpen action points:\n${bullets(home.tasks.map(taskLine))}`,
             `\nUpcoming reminders:\n${bullets(reminders.reminders.filter((r) => r.status === "pending").map((r) => `${when(r.remind_at, tz)}: ${r.text} {id: ${r.id}}`))}`,
             `\nOpen questions:\n${bullets(home.questions.map((q) => q.question))}`,
-            `\nRecent decisions:\n${bullets(home.decisions.map((d) => `${d.statement} (${when(d.decided_at, tz).slice(0, -6)})`))}`,
+            `\nRecent decisions (only ones that still stand):\n${bullets(home.decisions.map((d) => `${d.statement} (${when(d.decided_at, tz).slice(0, -6)})`))}`,
+            `\nRecently updated because they changed their mind or finished something:\n${bullets(changes.changes.map((x) => `${x.summary} (${when(x.created_at, tz).slice(0, -6)})`))}`,
             `\nActive projects:\n${bullets(active.map((p) => `${p.name}: ${p.summary?.current_focus ?? `${p.memoCount} memos`}${p.openTasks ? ` (${p.openTasks} open)` : ""}`))}`,
           ].join("\n"),
         );
@@ -351,7 +354,7 @@ Their timezone is ${tz}; it is now ${nowLocal}. Refer to them as "you".`,
           project: { name: string; summary: (ProjectItem["summary"] & { recent_ideas: string[]; decisions: string[]; evolution: string }) | null };
           thoughts: { type: string; title: string; summary: string; recorded_at: number; recording_id: string }[];
           tasks: TaskRow[];
-          decisions: { statement: string; decided_at: number }[];
+          decisions: { statement: string; decided_at: number; status: string }[];
           questions: { question: string; status: string }[];
         };
         const d = await api<Detail>("GET", `/projects/${found.id}`);
@@ -361,7 +364,7 @@ Their timezone is ${tz}; it is now ${nowLocal}. Refer to them as "you".`,
             `# ${d.project.name}`,
             b ? `Current focus: ${b.current_focus}\n\n${b.overview}\n\nNext steps:\n${bullets(b.next_steps)}\n\nHow the thinking evolved: ${b.evolution}` : "No brief yet.",
             `\nOpen action points:\n${bullets(d.tasks.filter((t) => t.status !== "done").map(taskLine))}`,
-            `\nDecisions:\n${bullets(d.decisions.map((x) => `${x.statement} (${when(x.decided_at, tz).slice(0, -6)})`))}`,
+            `\nDecisions (newest first; replaced ones no longer apply):\n${bullets(d.decisions.map((x) => `${x.status === "active" ? "" : "[replaced] "}${x.statement} (${when(x.decided_at, tz).slice(0, -6)})`))}`,
             `\nOpen questions:\n${bullets(d.questions.filter((q) => q.status === "open").map((q) => q.question))}`,
             `\nRecent thoughts:\n${bullets(d.thoughts.slice(0, 25).map((t) => `${when(t.recorded_at, tz).slice(0, -6)} · ${t.type}: ${t.title}: ${t.summary} {memo: ${t.recording_id}}`))}`,
           ].join("\n"),
