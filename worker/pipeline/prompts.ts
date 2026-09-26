@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { toJsonSchema } from "../ai/router";
 
-export const PROMPT_VERSION = "2026-09-19.3";
+export const PROMPT_VERSION = "2026-09-26.1";
 
 export const CATEGORIES = [
   "idea",
@@ -80,6 +80,7 @@ export const UnderstandSchema = z.strictObject({
     z.strictObject({
       text: z.string(),
       remind_at: z.string(),
+      when_text: z.string().nullable(),
       thought_index: z.number().int().nullable(),
     }),
   ),
@@ -143,10 +144,10 @@ Rules:
   - project: the project, product or venture the speaker is working on that this thought belongs to. Strongly prefer a name from "Known projects" (use its main name, never the "also heard as" spelling) whenever it is the same thing, even if spelled differently. Only name a new project for a clearly named product, company or initiative the speaker is building or running; never for general topics like "health" or "productivity". null when there is none.
   - topics: 1 to 4 broad lowercase subjects such as "pricing", "voice ai", "hiring".
   - people, organizations, products, places: proper names mentioned in that thought.
-- tasks: only concrete things the speaker intends or needs to do. Start the title with a verb. due_date: resolve any date or deadline into YYYY-MM-DD by looking it up in the Calendar. "This <weekday>" means the nearest <weekday> on or after the recording day. "Next <weekday>" means the <weekday> of the following week. "Tomorrow" is the day after the recording day. Never calculate dates yourself — always copy the exact YYYY-MM-DD from the Calendar. due_text: only the words that expressed the date, such as "tomorrow" or "by next Friday". Use null for both when no date was given.
+- tasks: only concrete things the speaker intends or needs to do. Start the title with a verb. due_date: resolve any date or deadline into YYYY-MM-DD by looking it up in the Calendar. "By <weekday>", "on <weekday>" and "this <weekday>" all mean that weekday itself: the nearest one on or after the recording day (a deadline "by Thursday" is due on the Thursday, not the day before). "Next <weekday>" means the <weekday> of the following week. "Tomorrow" is the day after the recording day. Never calculate dates yourself — always copy the exact YYYY-MM-DD from the Calendar. due_text: only the words that expressed the date, such as "tomorrow" or "by next Friday". Use null for both when no date was given.
 - decisions: choices the speaker commits to ("I've decided", "we'll go with", "let's use").
 - questions: open questions the speaker has not answered yet.
-- reminders: only when the speaker explicitly asks to be reminded ("remind me", "set a reminder", "don't let me forget", "yaad dila dena"). text: what to remind them about, starting with a verb. remind_at: the local time "YYYY-MM-DDTHH:MM", resolved against the recording time: "in 2 hours" adds to it; a day with no time is 09:00; morning 09:00, afternoon 14:00, evening 18:00, tonight 20:00. Look up the exact YYYY-MM-DD in the Calendar to build the date portion. Never guess or calculate dates yourself. Also list the same thing under tasks when it is something to do. An empty list when nobody asked for a reminder.
+- reminders: only when the speaker explicitly asks to be reminded ("remind me", "set a reminder", "don't let me forget", "yaad dila dena"). text: what to remind them about, starting with a verb. remind_at: the local time "YYYY-MM-DDTHH:MM", resolved against the recording time: "in 2 hours" adds to it; a day with no time is 09:00; morning 09:00, afternoon 14:00, evening 18:00, tonight 20:00. Look up the exact YYYY-MM-DD in the Calendar to build the date portion. Never guess or calculate dates yourself. when_text: only the words that said when, such as "tomorrow at 10 am" or "on Friday evening", or null. Also list the same thing under tasks when it is something to do. An empty list when nobody asked for a reminder.
 - thought_index: the 0-based index of the thought an item came from, or null.
 - vocabulary: up to 10 proper names (people, companies, products, projects, places) or rare technical terms from this memo that speech recognition could misspell. Never include ordinary words or phrases like "pricing" or "automation". Use the spelling from "Known names and terms" when a word is clearly the same name.
 Reply with only a JSON object that matches this JSON Schema:

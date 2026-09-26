@@ -130,17 +130,58 @@ export const pushDeviceRoutes = new Hono<AppEnv>()
  * For the Android and Mac apps' background sync (device upload token, no session): reminders from
  * two hours ago to two weeks ahead, which the device schedules as local notifications.
  */
-export const deviceReminderRoutes = new Hono<AppEnv>().get("/", async (c) => {
-  const userId = await userForCaptureToken(c.env, c.req.header("authorization"));
-  const { results } = await c.env.DB.prepare(
-    `SELECT id, text, remind_at, status, recording_id FROM reminders
-     WHERE user_id = ? AND status IN ('pending', 'sent') AND remind_at BETWEEN ? AND ?
-     ORDER BY remind_at LIMIT 200`,
-  )
-    .bind(userId, now() - 2 * 3600_000, now() + 14 * 86_400_000)
-    .all<{ id: string; text: string; remind_at: number; status: string; recording_id: string | null }>();
-  return c.json({
-    now: now(),
-    reminders: results.map((r) => ({ id: r.id, text: r.text, remindAt: r.remind_at, recordingId: r.recording_id })),
-  });
+const DeviceAction = z.object({
+  action: z.enum(["done", "snooze", "confirm", "dismiss"]),
+  /** For snooze: minutes from now. */
+  minutes: z.number().int().min(1).max(24 * 60).default(10),
 });
+
+export const deviceReminderRoutes = new Hono<AppEnv>()
+  // ?include=suggested also returns reminders waiting for a tap, so the phone can ask "Set this reminder?".
+  // Older app builds don't send it and keep getting only reminders that will ring.
+  .get("/", async (c) => {
+    const userId = await userForCaptureToken(c.env, c.req.header("authorization"));
+    const withSuggested = c.req.query("include") === "suggested";
+    const { results } = await c.env.DB.prepare(
+      `SELECT id, text, remind_at, status, recording_id FROM reminders
+       WHERE user_id = ? AND remind_at BETWEEN ? AND ?
+         AND (status IN ('pending', 'sent') OR (? = 1 AND status = 'suggested' AND remind_at > ?))
+       ORDER BY remind_at LIMIT 200`,
+    )
+      .bind(userId, now() - 2 * 3600_000, now() + 14 * 86_400_000, withSuggested ? 1 : 0, now())
+      .all<{ id: string; text: string; remind_at: number; status: string; recording_id: string | null }>();
+    return c.json({
+      now: now(),
+      reminders: results.map((r) => ({
+        id: r.id,
+        text: r.text,
+        remindAt: r.remind_at,
+        recordingId: r.recording_id,
+        suggested: r.status === "suggested",
+      })),
+    });
+  })
+
+  // The buttons on a ringing reminder or a "Set this reminder?" prompt, from the phone or Mac.
+  .post("/:id", async (c) => {
+    const userId = await userForCaptureToken(c.env, c.req.header("authorization"));
+    const body = DeviceAction.parse(await c.req.json());
+    const row = await c.env.DB.prepare("SELECT id, status, remind_at FROM reminders WHERE id = ? AND user_id = ?")
+      .bind(c.req.param("id"), userId)
+      .first<{ id: string; status: string; remind_at: number }>();
+    if (!row) throw new HttpError(404, "Reminder not found");
+    const ts = now();
+    const update = {
+      done: { status: "done", remind_at: row.remind_at },
+      snooze: { status: "pending", remind_at: ts + body.minutes * 60_000 },
+      confirm: { status: row.status === "suggested" ? "pending" : row.status, remind_at: row.remind_at },
+      dismiss: { status: row.status === "suggested" ? "cancelled" : row.status, remind_at: row.remind_at },
+    }[body.action];
+    await c.env.DB.prepare(
+      `UPDATE reminders SET status = ?, remind_at = ?, origin = CASE WHEN ? IN ('confirm', 'snooze') THEN 'app' ELSE origin END,
+         sent_at = CASE WHEN ? = 'pending' THEN NULL ELSE sent_at END, updated_at = ? WHERE id = ?`,
+    )
+      .bind(update.status, update.remind_at, body.action, update.status, ts, row.id)
+      .run();
+    return c.json({ ok: true, status: update.status, remindAt: update.remind_at });
+  });

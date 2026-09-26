@@ -13,12 +13,13 @@ It runs entirely on free tiers: Cloudflare (Workers, D1, R2, Vectorize, Workflow
 - **Understands what you said.**
   - Transcription in English, Hindi and Hinglish, with your own names and terms kept correct.
   - A summary for each memo, plus the thoughts, action points, decisions, open questions and reminders in it.
-- **Projects.** Everything you say about a project lands on its own page, with a brief that keeps itself up to date. Misheard names are matched to the right project.
+- **Keeps up when you change your mind.** Each new memo is compared with what's already open. Say "yellow, not orange" or "build ABC instead of XYZ" and the old decision is marked replaced, the old task comes off your list, a reminder you no longer need is cancelled and an answered question is closed. Every change shows on Home and on the memo, with Undo.
+- **Projects.** Everything you say about a project lands on its own page, with a brief that rewrites itself after each memo. Misheard names are matched to the right project.
 - **Today, then everything else.** The home screen opens with today's action points and reminders, with the full lists below.
 - **Action points.** Add them by hand or let a memo create them, then edit the title, due date and project in place: long-press on a phone, double-click, right-click or the pencil on a computer.
 - **Summaries** for any date range: today, the last 7, 15 or 30 days, or custom.
 - **Search** by meaning and by keyword.
-- **Reminders.** Say "remind me…" in a memo, ask Claude, or add one in the app. Anything the AI suggests waits for your tick before it can fire. They arrive as notifications on Android and Mac, even offline.
+- **Reminders that ring.** Say "remind me…" in a memo, ask Claude, or add one in the app. On Android it rings like an alarm, full screen over the lock screen, until you press Done or Snooze. On the Mac a floating alert with sound appears on every desktop. Reminders the AI heard in a memo wait for one tap ("Set this reminder?") before they can ring. Everything works offline.
 - **Claude connector.** A remote MCP server at `/mcp`, protected by OAuth, with 14 tools. Claude can:
   - read your memos, projects and summaries
   - add action points and notes
@@ -43,7 +44,7 @@ eval/scripts/       live smoke tests against the AI providers
 
 ## Deploy your own
 
-You need a Cloudflare account (the Workers Free plan is enough) and a free [Groq](https://console.groq.com) API key.
+You need a Cloudflare account (the Workers Free plan is enough) and a free [Groq](https://console.groq.com) API key. Cloudflare asks for a payment method before it switches on R2 storage; the free tier (10 GB) costs nothing, and the app caps itself at 8 GB.
 
 1. Install, log in, and make your own config:
 
@@ -111,7 +112,7 @@ In Claude, open Settings → Connectors → Add custom connector. Enter `https:/
 
 ## Reminders on your phone
 
-The Android and Mac apps sync upcoming reminders and fire them as local notifications. A reminder set from Claude reaches the phone at its next sync, which happens when the app opens, after an upload, or every 15 minutes.
+The Android and Mac apps sync upcoming reminders and ring them on the device, so they work offline. Android uses the system alarm clock, the alarm sound and a full-screen alert; allow notifications when asked. A reminder set from Claude reaches the phone at its next sync, which happens when the app opens, after an upload, or every 15 minutes.
 
 For instant delivery:
 1. Create a free Firebase project.

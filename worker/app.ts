@@ -23,7 +23,7 @@ const APP_ORIGINS = new Set(["https://localhost", "capacitor://localhost", "http
  * Paths reachable without a session (they do their own auth):
  * auth itself, device-token endpoints (capture, reminder sync) and signed audio links.
  */
-const PUBLIC = [/^\/api\/auth\//, /^\/api\/capture$/, /^\/api\/device\/reminders$/, /^\/api\/health$/];
+const PUBLIC = [/^\/api\/auth\//, /^\/api\/capture$/, /^\/api\/device\/reminders(\/[^/]+)?$/, /^\/api\/health$/];
 const SIGNED_AUDIO = /^\/api\/recordings\/[^/]+\/audio$/;
 
 export const app = new Hono<AppEnv>().basePath("/api");

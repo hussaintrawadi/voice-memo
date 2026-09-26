@@ -44,6 +44,22 @@
             android:name=".reminders.ReminderAlarmReceiver"
             android:exported="false" />
 
+        <!-- Done / Snooze / Set reminder buttons on reminder notifications. -->
+        <receiver
+            android:name=".reminders.ReminderActionReceiver"
+            android:exported="false" />
+
+        <!-- The ringing reminder, full screen over the lock screen. -->
+        <activity
+            android:name=".reminders.ReminderAlarmActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Material.NoActionBar"
+            android:turnScreenOn="true" />
+
         <!-- Exported only for the system's boot and update broadcasts, which other apps can't send. -->
         <receiver
             android:name=".reminders.ReminderBootReceiver"
@@ -76,4 +92,6 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Lets a ringing reminder open full screen over the lock screen, like an alarm clock. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
 </manifest>

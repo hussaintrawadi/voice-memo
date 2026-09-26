@@ -13,8 +13,6 @@ DEEPGRAM_API_KEY=
 SARVAM_API_KEY=
 MISTRAL_API_KEY=
 
-# Email digests (Resend free tier)
-RESEND_API_KEY=
 
 # Reminder push to Android: the Firebase service account JSON, on one line (optional)
 FCM_SERVICE_ACCOUNT=

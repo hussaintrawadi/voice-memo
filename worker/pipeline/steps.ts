@@ -12,7 +12,7 @@ import {
   setStatus,
 } from "../lib/data";
 import { applySpellings, chunkText, isNameLike, isNearName, isOnlyStockPhrases, type Spelling } from "../lib/text";
-import { isLocalDateTime, zonedDateTime } from "../lib/time";
+import { isLocalDateTime, resolveDayPhrase, zonedDateTime } from "../lib/time";
 import { reconcileRecording } from "./reconcile";
 import { errorMessage, estimateTokens, localTime, newId, now, truncate } from "../lib/util";
 import {
@@ -569,6 +569,10 @@ export function understandStage(env: Env, id: string) {
       }
     });
 
+    // Day words ("by Thursday", "kal") are resolved in code; the model's own date is the fallback.
+    const recordedDate = localTime(rec.recorded_at, user.timezone).date;
+    const dueDate = (task: Understanding["tasks"][number]) =>
+      (task.due_text && resolveDayPhrase(task.due_text, recordedDate)) || task.due_date;
     for (const task of u.tasks) {
       statements.push(
         env.DB.prepare(
@@ -580,7 +584,7 @@ export function understandStage(env: Env, id: string) {
           id,
           thoughtId(task.thought_index),
           task.title,
-          task.due_date,
+          dueDate(task),
           task.due_text,
           thoughtProject(task.thought_index),
           ts,
@@ -616,7 +620,8 @@ export function understandStage(env: Env, id: string) {
       );
     }
     for (const r of u.reminders) {
-      const remindAt = zonedDateTime(r.remind_at, user.timezone);
+      const day = r.when_text ? resolveDayPhrase(r.when_text, recordedDate) : null;
+      const remindAt = zonedDateTime(day ? `${day}T${r.remind_at.slice(11, 16)}` : r.remind_at, user.timezone);
       // A time before the memo was recorded is a misread, not a reminder.
       if (remindAt < rec.recorded_at - 60_000) continue;
       statements.push(

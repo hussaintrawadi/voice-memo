@@ -11,7 +11,7 @@ Voice Memo is one Cloudflare Worker that serves the web app, the API, the proces
    /api/*     auth, recordings, search, projects, summaries, tasks, reminders
    /mcp       Claude connector, behind OAuth 2.1
    assets     the React app
-   Workflow   ProcessRecording: transcribe → clean → understand → embed
+   Workflow   ProcessRecording: transcribe → clean → understand → reconcile → embed
    Cron       every minute: due reminders · every 5 min: restart stuck jobs · hourly: upkeep
    Bindings   D1 (data + FTS5) · R2 (audio) · Vectorize (meaning) · KV (OAuth) · Workers AI
         │  provider keys are Worker secrets
@@ -46,12 +46,29 @@ The Workers Free plan allows about 10 ms of CPU per request. Waiting on the netw
 | transcribe | router picks a speech provider; segments and timestamps saved | Transcribing |
 | clean | an LLM removes fillers into a separate version; the raw transcript is never overwritten | Analyzing |
 | understand | strict JSON: title, summary, category, thoughts, tasks, decisions, questions, reminders, vocabulary | Analyzing |
+| reconcile | compares the memo with what's already open and updates it (see below) | Organizing |
 | embed | embeddings into Vectorize; FTS5 index updated | Organizing |
 | finish | counters and status | Completed |
 
 Each step retries up to five times with exponential backoff. A five-minute sweeper restarts anything stuck. Long recordings are split into 30-minute parts on the device, and long transcripts are processed in chunks to stay under the provider's per-minute token cap.
 
 Typed notes (from the app or from Claude) skip transcription and cleaning: the text is kept exactly as written and goes straight to `understand`.
+
+### Dates
+
+The model quotes the words that set a date ("by Thursday", "kal", "next Monday"). Code turns those words into the date, counted from the day the memo was recorded, including Hindi day names; the model's own date is used only for phrases code can't pin down, such as an explicit calendar date. Models are unreliable at this arithmetic.
+
+### Context awareness
+
+After a memo is understood, the reconcile step shows the model the memo, the items it produced, and what was already open: tasks, decisions, reminders and questions, from the same project first. It applies only what the memo states or clearly means:
+
+- a decision replaced by a newer one, or dropped
+- a task swapped for another, dropped, done, moved or renamed
+- a reminder cancelled, moved or done
+- a question answered
+- a task or reminder the memo repeated, not added twice
+
+Suggestions that name unknown items, pair an action with the wrong kind of item, or carry a malformed or past date are discarded, not guessed at. Every change is logged with the words that justified it and the values it replaced (`context_changes`), shown on Home and on the memo, and can be undone. Deleting or reprocessing a memo undoes its changes first. The briefs of the projects it touched are rewritten straight away, and summaries report where a changed decision ended up. If every provider is busy, the memo still completes; it just changes nothing that time.
 
 ### Silence and hallucinations
 
@@ -74,7 +91,10 @@ Vector budget: the free tier stores 5M dimensions, which is about 13,000 thought
 
 - **Projects.** Each thought is filed to a project. Misheard names are matched to known projects by edit distance and kept as aliases, so "Lumena" lands in "Lumina". Each project has a brief that is refreshed hourly when there are new notes.
 - **Summaries.** Any date range, built from SQL statistics plus an LLM pass, cached until new memos land in that range.
-- **Reminders.** Extracted from "remind me…" in a memo, or created in the app or by Claude. AI-suggested reminders wait for confirmation. The Android and Mac apps sync the list and fire local notifications, so they work offline; a per-minute cron marks them sent and can push through Firebase when configured.
+- **Reminders.** Extracted from "remind me…" in a memo, or created in the app or by Claude. Reminders the AI heard wait for one tap, which the phone asks for with a "Set this reminder?" notification. The devices sync the list and ring it themselves, so it works offline:
+  - **Android:** the system alarm clock, the alarm sound on repeat, and a full-screen alert over the lock screen until Done or Snooze.
+  - **Mac:** the menu-bar app shows a floating alert with sound on every desktop.
+  - **Buttons:** Done, Snooze and Set go to `/api/device/reminders/:id` with the device token and are queued while offline. A per-minute cron marks due reminders sent, and can push through Firebase when configured.
 
 ## The Claude connector (MCP)
 
@@ -91,7 +111,9 @@ Every table carries `user_id`. The main ones:
 - `reminders`, `push_devices`, `range_summaries`
 - `provider_usage`, `provider_state`
 
-Some tables from the original schema are reserved for features that aren't built yet (ideas, links, chat threads, digests).
+- `context_changes`: what each memo changed, with the old values, for undo
+
+Some tables from the original schema are reserved for features that aren't built yet (ideas, links, chat threads).
 
 ## Security
 

@@ -12,6 +12,7 @@ public class ReminderAlarmReceiver extends BroadcastReceiver {
         String text = intent.getStringExtra(ReminderScheduler.EXTRA_TEXT);
         if (id == null || text == null) return;
         String url = intent.getStringExtra(ReminderScheduler.EXTRA_URL);
-        ReminderScheduler.show(context, id, text, url != null ? url : "/");
+        long at = intent.getLongExtra(ReminderScheduler.EXTRA_AT, System.currentTimeMillis());
+        ReminderScheduler.ring(context, id, text, url != null ? url : "/", at);
     }
 }

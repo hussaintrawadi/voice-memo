@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { UnderstandSchema } from "../worker/pipeline/prompts";
-import { parseWhen } from "../worker/lib/time";
+import { parseWhen, resolveDayPhrase } from "../worker/lib/time";
 import { ftsQuery, fuseRankings } from "../worker/lib/search";
 import { applySpellings, chunkText, dropHallucinations, isNameLike, isNearName, isOnlyStockPhrases, levenshtein } from "../worker/lib/text";
 import {
@@ -150,7 +150,7 @@ describe("UnderstandSchema", () => {
       tasks: [{ title: "Call Priya", due_date: "2026-09-18", due_text: "tomorrow", thought_index: 0 }],
       decisions: [],
       questions: [],
-      reminders: [{ text: "Email Priya", remind_at: "2026-09-20T10:00", thought_index: 0 }],
+      reminders: [{ text: "Email Priya", remind_at: "2026-09-20T10:00", when_text: "tomorrow at 10", thought_index: 0 }],
       vocabulary: ["Lumina"],
     });
     expect(ok.success).toBe(true);
@@ -262,5 +262,34 @@ describe("parseWhen", () => {
   });
   it("rejects nonsense", () => {
     expect(() => parseWhen("tomorrow", "Asia/Kolkata")).toThrow();
+  });
+});
+
+describe("resolveDayPhrase", () => {
+  // Saturday 26 Sep 2026
+  const sat = "2026-09-26";
+  it("reads weekdays as the nearest one, today included", () => {
+    expect(resolveDayPhrase("by Thursday", sat)).toBe("2026-10-01");
+    expect(resolveDayPhrase("on Monday", sat)).toBe("2026-09-28");
+    expect(resolveDayPhrase("this Saturday", sat)).toBe("2026-09-26");
+    expect(resolveDayPhrase("Thursday", "2026-09-21")).toBe("2026-09-24"); // said on a Monday
+  });
+  it("reads 'next <weekday>' as the following week's", () => {
+    expect(resolveDayPhrase("next Thursday", sat)).toBe("2026-10-01");
+    expect(resolveDayPhrase("next Thursday", "2026-09-21")).toBe("2026-10-01"); // Monday → a week on
+    expect(resolveDayPhrase("next Sunday", sat)).toBe("2026-10-04");
+  });
+  it("reads relative days, in English and Hindi", () => {
+    expect(resolveDayPhrase("tomorrow", sat)).toBe("2026-09-27");
+    expect(resolveDayPhrase("kal", sat)).toBe("2026-09-27");
+    expect(resolveDayPhrase("parso", sat)).toBe("2026-09-28");
+    expect(resolveDayPhrase("guruvar tak", sat)).toBe("2026-10-01");
+    expect(resolveDayPhrase("tonight", sat)).toBe(sat);
+    expect(resolveDayPhrase("in 3 days", sat)).toBe("2026-09-29");
+  });
+  it("leaves phrases it can't pin down to the model", () => {
+    expect(resolveDayPhrase("by the end of the month", sat)).toBeNull();
+    expect(resolveDayPhrase("on the 3rd of October", sat)).toBeNull();
+    expect(resolveDayPhrase("month end", sat)).toBeNull();
   });
 });

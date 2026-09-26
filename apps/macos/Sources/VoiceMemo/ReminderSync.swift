@@ -6,12 +6,14 @@ extension Notification.Name {
     static let openMainWindow = Notification.Name("VoiceMemoOpenMainWindow")
 }
 
-/// Shows reminders as Mac notifications. The list comes from the server with the device upload token
-/// every 5 minutes, on wake, and whenever the page changes a reminder; the notifications themselves are
-/// scheduled on this Mac, so they fire on time even offline.
+/// Rings reminders on this Mac. The list comes from the server with the device upload token every
+/// 5 minutes, on wake, and whenever the page changes a reminder. The app (always running in the menu
+/// bar) keeps its own timer for the next one and, when it's due, shows a floating alert with a
+/// repeating sound until you press Done or Snooze. Reminders missed while the Mac slept are shown
+/// when it wakes.
 @MainActor
 final class ReminderSync: NSObject, UNUserNotificationCenterDelegate {
-    private struct Item: Decodable {
+    private struct Item: Decodable, Equatable {
         let id: String
         let text: String
         let remindAt: Double
@@ -22,14 +24,21 @@ final class ReminderSync: NSObject, UNUserNotificationCenterDelegate {
         let reminders: [Item]
     }
 
-    private static let prefix = "reminder-"
-    /// Reminders already scheduled or shown, so a missed one is shown once and never twice.
-    private static let handledKey = "handledReminders"
+    /// Scheduled notifications from earlier builds used this prefix; they're removed on launch.
+    private static let legacyPrefix = "reminder-"
+    /// "id@time" of reminders already rung or shown, so each rings once per time it's set for.
+    private static let handledKey = "handledReminderTimes"
+    private static let snoozeMinutes = 10
 
     private let uploader: Uploader
     private let center = UNUserNotificationCenter.current()
-    private var timer: Timer?
+    private let alarms = AlarmPanel()
+    private var syncTimer: Timer?
+    private var nextTimer: Timer?
     private var syncing = false
+    private var upcoming: [Item] = []
+    /// Snoozes made here, kept until the server reports the new time (or the reminder is gone).
+    private var snoozed: [String: Item] = [:]
     /// Opens a path such as /r/<memo id> in the window.
     var openPath: ((String) -> Void)?
 
@@ -37,13 +46,26 @@ final class ReminderSync: NSObject, UNUserNotificationCenterDelegate {
         self.uploader = uploader
         super.init()
         center.delegate = self
-        timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
+        alarms.onDone = { [weak self] alert in self?.send(alert.id, action: "done") }
+        alarms.onSnooze = { [weak self] alert in self?.snooze(alert) }
+        alarms.onOpen = { [weak self] alert in
+            self?.send(alert.id, action: "done")
+            NotificationCenter.default.post(name: .openMainWindow, object: nil)
+            NSApp.activate(ignoringOtherApps: true)
+            self?.openPath?(alert.recordingId.map { "/r/\($0)" } ?? "/")
+        }
+        syncTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.sync() }
         }
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in await self?.sync() }
         }
-        Task { await sync() }
+        // Earlier builds scheduled macOS notifications; the app rings reminders itself now.
+        Task { @MainActor in
+            let old = await center.pendingNotificationRequests().map(\.identifier).filter { $0.hasPrefix(Self.legacyPrefix) }
+            center.removePendingNotificationRequests(withIdentifiers: old)
+            await sync()
+        }
     }
 
     func sync() async {
@@ -58,48 +80,112 @@ final class ReminderSync: NSObject, UNUserNotificationCenterDelegate {
               let items = try? JSONDecoder().decode(Response.self, from: data).reminders
         else { return }
 
-        let settings = await center.notificationSettings()
-        if settings.authorizationStatus == .notDetermined {
-            _ = try? await center.requestAuthorization(options: [.alert, .sound])
+        let now = Date().timeIntervalSince1970 * 1000
+        let listed = Dictionary(items.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        // A snooze from this Mac wins until the server shows it; done elsewhere, it's dropped.
+        snoozed = snoozed.filter { id, local in
+            guard let server = listed[id] else { return false }
+            return server.remindAt < local.remindAt - 5_000
         }
-        guard await center.notificationSettings().authorizationStatus == .authorized else { return }
+        for item in items where snoozed[item.id] == nil && item.remindAt <= now && !isHandled(item) {
+            // Came due while the Mac was asleep or the app was closed.
+            ring(item, missed: now - item.remindAt > 2 * 60_000)
+        }
+        upcoming = items.filter { snoozed[$0.id] == nil && $0.remindAt > now } + snoozed.values.filter { $0.remindAt > now }
+        scheduleNext()
+    }
 
-        let wanted = Set(items.map { Self.prefix + $0.id })
-        let stale = await center.pendingNotificationRequests()
-            .map(\.identifier)
-            .filter { $0.hasPrefix(Self.prefix) && !wanted.contains($0) }
-        center.removePendingNotificationRequests(withIdentifiers: stale)
+    // MARK: - Ringing
 
-        var handled = Set(UserDefaults.standard.stringArray(forKey: Self.handledKey) ?? [])
-        let now = Date()
-        for item in items {
-            let date = Date(timeIntervalSince1970: item.remindAt / 1000)
-            let trigger: UNNotificationTrigger?
-            if date > now {
-                let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: date)
-                trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
-            } else if !handled.contains(item.id) {
-                trigger = nil // missed while asleep or offline: show now
-            } else {
-                continue
+    private func scheduleNext() {
+        nextTimer?.invalidate()
+        guard let next = upcoming.min(by: { $0.remindAt < $1.remindAt }) else { return }
+        let delay = max(0, next.remindAt / 1000 - Date().timeIntervalSince1970)
+        nextTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
+            Task { @MainActor in self?.fireDue() }
+        }
+        // Timers pause while the Mac sleeps; the wake-up sync catches anything that came due.
+        nextTimer?.tolerance = 1
+    }
+
+    private func fireDue() {
+        let now = Date().timeIntervalSince1970 * 1000 + 500
+        for item in upcoming where item.remindAt <= now && !isHandled(item) {
+            ring(item, missed: false)
+        }
+        upcoming.removeAll { $0.remindAt <= now }
+        scheduleNext()
+    }
+
+    private func ring(_ item: Item, missed: Bool) {
+        markHandled(item)
+        alarms.ring(.init(
+            id: item.id,
+            text: item.text,
+            at: Date(timeIntervalSince1970: item.remindAt / 1000),
+            recordingId: item.recordingId,
+            missed: missed
+        ))
+        // Also leave it in Notification Center, so it's there if you were away from the Mac.
+        let content = UNMutableNotificationContent()
+        content.title = missed ? "Missed reminder" : "Reminder"
+        content.body = item.text
+        content.userInfo = ["path": item.recordingId.map { "/r/\($0)" } ?? "/"]
+        Task {
+            if await center.notificationSettings().authorizationStatus == .notDetermined {
+                _ = try? await center.requestAuthorization(options: [.alert, .sound])
             }
-            let content = UNMutableNotificationContent()
-            content.title = "Reminder"
-            content.body = item.text
-            content.sound = .default
-            content.userInfo = ["path": item.recordingId.map { "/r/\($0)" } ?? "/"]
-            try? await center.add(UNNotificationRequest(identifier: Self.prefix + item.id, content: content, trigger: trigger))
-            handled.insert(item.id)
+            try? await center.add(UNNotificationRequest(identifier: "rang-\(item.id)-\(Int(item.remindAt))", content: content, trigger: nil))
         }
+    }
+
+    private func snooze(_ alert: AlarmPanel.Alert) {
+        // Rings again here even if the server can't be reached right now.
+        let at = (Date().timeIntervalSince1970 + Double(Self.snoozeMinutes * 60)) * 1000
+        let item = Item(id: alert.id, text: alert.text, remindAt: at, recordingId: alert.recordingId)
+        snoozed[alert.id] = item
+        upcoming.removeAll { $0.id == alert.id }
+        upcoming.append(item)
+        scheduleNext()
+        send(alert.id, action: "snooze")
+    }
+
+    /// Tells the server what was pressed. Best effort: the next sync reflects whatever landed.
+    private func send(_ id: String, action: String) {
+        Task {
+            guard let token = await uploader.ensureToken(),
+                  id.range(of: "^[0-9a-f-]{36}$", options: .regularExpression) != nil else { return }
+            var request = URLRequest(url: Config.baseURL.appendingPathComponent("api/device/reminders/\(id)"))
+            request.httpMethod = "POST"
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try? JSONSerialization.data(withJSONObject: ["action": action, "minutes": Self.snoozeMinutes])
+            _ = try? await URLSession.shared.data(for: request)
+        }
+    }
+
+    // MARK: - Bookkeeping
+
+    private func key(_ item: Item) -> String { "\(item.id)@\(Int(item.remindAt))" }
+
+    private func isHandled(_ item: Item) -> Bool {
+        (UserDefaults.standard.stringArray(forKey: Self.handledKey) ?? []).contains(key(item))
+    }
+
+    private func markHandled(_ item: Item) {
+        var handled = UserDefaults.standard.stringArray(forKey: Self.handledKey) ?? []
+        handled.append(key(item))
         UserDefaults.standard.set(Array(handled.suffix(500)), forKey: Self.handledKey)
     }
 
-    // Show reminders even while Voice Memo is the frontmost app.
+    // MARK: - Notification Center
+
+    // Show the Notification Center copy even while Voice Memo is the frontmost app.
     nonisolated func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .list, .sound]
+        [.list]
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
