@@ -1,8 +1,35 @@
-# Voice Memo
+<p align="center">
+  <img src="assets/logo.png" width="96" alt="Voice Memo logo">
+</p>
+
+<h1 align="center">Voice Memo</h1>
+
+<p align="center"><b>Talk. It does the filing.</b></p>
+
+<p align="center">
+  <a href="https://github.com/hussaintrawadi/voice-memo/actions/workflows/tests.yml"><img src="https://github.com/hussaintrawadi/voice-memo/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/runs%20on-Cloudflare%20free%20tier-F38020.svg" alt="Runs on the Cloudflare free tier">
+  <img src="https://img.shields.io/badge/Claude-MCP%20connector-D97757.svg" alt="Claude MCP connector">
+  <img src="https://img.shields.io/badge/apps-web%20%C2%B7%20Android%20%C2%B7%20Mac-1f3d35.svg" alt="Web, Android and Mac apps">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/home.png" width="24%" alt="Home: today's tasks and reminders, and what your latest memos changed">
+  <img src="docs/screenshots/timeline.png" width="24%" alt="Timeline of memos with titles, summaries and projects">
+  <img src="docs/screenshots/memo.png" width="24%" alt="A memo with audio, a summary, and the decisions and tasks found in it">
+  <img src="docs/screenshots/project.png" width="24%" alt="A project page with a brief that rewrites itself after each memo">
+</p>
 
 A voice-first second brain. Record a thought and it gets transcribed, cleaned up, split into ideas, tasks, decisions and questions, filed into projects, and indexed so you can search it by meaning. Ask Claude about it through the built-in MCP connector.
 
 It runs entirely on free tiers: Cloudflare (Workers, D1, R2, Vectorize, Workflows, KV, Workers AI) plus free AI APIs (Groq first, with fallbacks). No servers of your own, and nothing runs on your laptop. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it works, and its limits.
+
+## Why
+
+I think out loud. Ideas, tasks and decisions show up while I am walking or driving, and a folder of voice notes never gets listened to again.
+
+So I built Voice Memo. You talk, and it does the filing: the task lands on your list, the decision lands on the project, and when you change your mind in a later memo, the old one is updated for you.
 
 ## What it does
 
@@ -146,6 +173,21 @@ npm test
 - **Audio.** Recordings go to the AI providers you configure. By default, only providers that say they don't train on API data are used. Audio is deleted after 30 days.
 - **Your data.** Transcripts and notes stay in your own Cloudflare account.
 
+## Screenshots
+
+Light and dark follow your system setting.
+
+<p align="center">
+  <img src="docs/screenshots/home-dark.png" width="32%" alt="Home in dark mode">
+  <img src="docs/screenshots/memo-dark.png" width="32%" alt="A memo in dark mode">
+</p>
+
+The screenshots use made-up demo data.
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). For security problems, see [SECURITY.md](SECURITY.md).
+
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Built by [Hussain Trawadi](https://github.com/hussaintrawadi).
