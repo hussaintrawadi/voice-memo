@@ -12,6 +12,7 @@
   <img src="https://img.shields.io/badge/runs%20on-Cloudflare%20free%20tier-F38020.svg" alt="Runs on the Cloudflare free tier">
   <img src="https://img.shields.io/badge/Claude-MCP%20connector-D97757.svg" alt="Claude MCP connector">
   <img src="https://img.shields.io/badge/apps-web%20%C2%B7%20Android%20%C2%B7%20Mac-1f3d35.svg" alt="Web, Android and Mac apps">
+  <a href="https://claude.com/claude-code"><img src="https://img.shields.io/badge/vibe%20coded%20with-Claude-D97757.svg" alt="Vibe coded with Claude"></a>
 </p>
 
 <p align="center">
@@ -29,7 +30,7 @@ It runs entirely on free tiers: Cloudflare (Workers, D1, R2, Vectorize, Workflow
 
 I think out loud. Ideas, tasks and decisions show up while I am walking or driving, and a folder of voice notes never gets listened to again.
 
-So I built Voice Memo. You talk, and it does the filing: the task lands on your list, the decision lands on the project, and when you change your mind in a later memo, the old one is updated for you.
+So I built Voice Memo, vibe coded with Claude from the first line. You talk, and it does the filing: the task lands on your list, the decision lands on the project, and when you change your mind in a later memo, the old one is updated for you.
 
 ## What it does
 
@@ -190,4 +191,4 @@ Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md). Fo
 
 ## License
 
-[MIT](LICENSE). Built by [Hussain Trawadi](https://github.com/hussaintrawadi).
+[MIT](LICENSE). Built by [Hussain Trawadi](https://github.com/hussaintrawadi), vibe coded with [Claude](https://claude.com/claude-code).
