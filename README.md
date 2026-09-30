@@ -7,6 +7,15 @@
 <p align="center"><b>Talk. It does the filing.</b></p>
 
 <p align="center">
+  <a href="https://www.producthunt.com/products/voice-memo?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-voice-memo">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1263104&theme=dark">
+      <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1263104&theme=light" width="250" height="54" alt="Voice Memo on Product Hunt">
+    </picture>
+  </a>
+</p>
+
+<p align="center">
   <a href="https://github.com/hussaintrawadi/voice-memo/actions/workflows/tests.yml"><img src="https://github.com/hussaintrawadi/voice-memo/actions/workflows/tests.yml/badge.svg" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <img src="https://img.shields.io/badge/runs%20on-Cloudflare%20free%20tier-F38020.svg" alt="Runs on the Cloudflare free tier">
