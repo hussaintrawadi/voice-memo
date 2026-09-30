@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.png" width="96" alt="Voice Memo logo">
+  <img src="docs/app-icon.png" width="96" alt="Voice Memo app icon">
 </p>
 
 <h1 align="center">Voice Memo</h1>
@@ -13,6 +13,10 @@
   <img src="https://img.shields.io/badge/Claude-MCP%20connector-D97757.svg" alt="Claude MCP connector">
   <img src="https://img.shields.io/badge/apps-web%20%C2%B7%20Android%20%C2%B7%20Mac-1f3d35.svg" alt="Web, Android and Mac apps">
   <a href="https://claude.com/claude-code"><img src="https://img.shields.io/badge/vibe%20coded%20with-Claude-D97757.svg" alt="Vibe coded with Claude"></a>
+</p>
+
+<p align="center">
+  <a href="https://youtu.be/1wT3zImz68U"><img src="docs/demo-poster.png" width="80%" alt="Watch the 43-second Voice Memo demo on YouTube"></a>
 </p>
 
 <p align="center">
